@@ -1,0 +1,44 @@
+# gbrain-ingest.service — ingest staged transcripts from the upload inbox.
+[Unit]
+Description=GBrain inbox transcript ingest
+After=gbrain.service gbrain-pg.service
+ConditionPathExists=@ROOT@/etc/inbox-policy.conf
+RequiresMountsFor=@ROOT@/inbox @DATA@
+
+[Service]
+Type=oneshot
+User=@USER@
+Group=@GROUP@
+Environment=GBRAIN_HOME=@ROOT@/home
+Environment=PATH=@BUN_BIN@:/usr/local/bin:/usr/bin:/bin
+EnvironmentFile=-@ROOT@/secrets/llm-client.env
+ExecStart=@ROOT@/bin/ingest_inbox.sh
+Nice=10
+IOSchedulingClass=idle
+MemoryMax=1G
+MemorySwapMax=256M
+TimeoutStartSec=45min
+# --- sandbox: this unit handles data other people uploaded; @USER@ may have sudo / docker ---
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=@ROOT@/inbox @ROOT@/home @ROOT@/repos @ROOT@/sources @DATA@/logs
+InaccessiblePaths=-/run/docker.sock -/var/run/docker.sock -/run/containerd -@USER_HOME@/.ssh
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+CapabilityBoundingSet=
+SystemCallArchitectures=native
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+UMask=0027
+StandardOutput=append:@DATA@/logs/ingest.log
+StandardError=append:@DATA@/logs/ingest.log

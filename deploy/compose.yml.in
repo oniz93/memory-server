@@ -1,0 +1,38 @@
+# @ROOT@/compose.yml — Postgres (with pgvector) for GBrain. Rendered by deploy/install.sh from
+# compose.yml.in: change /etc/gbrain/gbrain.conf and re-run the installer instead of editing this.
+# Managed through gbrain-pg.service:  systemctl start|stop gbrain-pg
+name: gbrain
+services:
+  pg:
+    image: pgvector/pgvector:0.8.1-pg17   # gbrain's schema needs the vector extension
+    container_name: gbrain-pg
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: gbrain
+      POSTGRES_USER: gbrain
+      POSTGRES_PASSWORD: ${GBRAIN_DB_PASSWORD:?set in secrets/db.env}
+    command: >
+      postgres -c shared_buffers=128MB -c max_connections=40
+               -c work_mem=8MB -c maintenance_work_mem=64MB
+               -c effective_cache_size=512MB
+               -c listen_addresses=*
+    ports:
+      - "127.0.0.1:@PG_PORT@:5432"
+    volumes:
+      # create_host_path: false — if the data disk is not mounted the container must fail to
+      # start, never silently initialise an empty database on the wrong disk.
+      - type: bind
+        source: @DATA@/pg
+        target: /var/lib/postgresql/data
+        bind:
+          create_host_path: false
+    mem_limit: @PG_MEM_MB@m
+    memswap_limit: @PG_MEMSWAP_MB@m
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gbrain -d gbrain"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }

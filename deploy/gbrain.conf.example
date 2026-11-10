@@ -1,0 +1,45 @@
+# /etc/gbrain/gbrain.conf — site configuration for the shared GBrain server.
+#
+# Plain KEY=VALUE only (no quotes, no spaces around "=", no variable references): this one file is
+# read by bash scripts, by systemd (EnvironmentFile) and by docker compose (--env-file).
+# After changing it:   sudo deploy/install.sh        (re-renders units and restarts what changed)
+# To relocate data:    sudo /srv/gbrain/bin/move-data.sh <new-data-dir>   (never just edit the path)
+
+# Unix user that owns the install and runs the services. It needs docker access for backups.
+GBRAIN_USER=gbrain
+
+# Small, rarely changing files: scripts, config, secrets, source checkouts, the inbox mountpoint.
+GBRAIN_ROOT=/srv/gbrain
+
+# Everything that grows: Postgres data (pg/), backups (backups/), logs (logs/) and the inbox
+# image (inbox.img). Point this at your larger / secondary disk, e.g. /mnt/volume1/gbrain.
+# The services refuse to start while this path's filesystem is not mounted.
+GBRAIN_DATA_DIR=/srv/gbrain/data
+
+# Directory containing the `bun` and `gbrain` executables of GBRAIN_USER.
+GBRAIN_BUN_BIN=/home/gbrain/.bun/bin
+
+# Git ref of github.com/garrytan/gbrain to install: a branch, tag or commit ("stable" moves).
+GBRAIN_REF=stable
+
+# Loopback ports. Nothing listens on a public interface until a front door is enabled.
+GBRAIN_HTTP_PORT=3131
+GBRAIN_PG_PORT=5433
+GBRAIN_SHIM_PORT=4010
+# Port the VPN (Tailscale / WireGuard) front doors listen on, on the VPN address only.
+GBRAIN_TUNNEL_PORT=3132
+
+# Upload inbox: a loop-mounted image of this size, so uploads can never fill a shared disk.
+GBRAIN_INBOX_SIZE=2G
+# Processed uploads are kept as a safety copy: at most this many days and this many MB.
+GBRAIN_DONE_KEEP_DAYS=30
+GBRAIN_DONE_MAX_MB=600
+
+# Memory caps (the swap caps are derived from them).
+GBRAIN_PG_MEM_MB=512
+GBRAIN_SERVE_MEM_MB=768
+
+# Backups: daily dumps kept, weekly copies kept, optional offsite rsync target (empty = off).
+GBRAIN_BACKUP_KEEP_DAILY=7
+GBRAIN_BACKUP_KEEP_WEEKLY=4
+GBRAIN_OFFSITE_RSYNC=

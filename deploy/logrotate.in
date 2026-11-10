@@ -1,0 +1,12 @@
+# /etc/logrotate.d/gbrain — rendered by deploy/install.sh
+@DATA@/logs/*.log @DATA@/logs/*.jsonl {
+    weekly
+    rotate 8
+    size 20M
+    missingok
+    notifempty
+    compress
+    delaycompress
+    copytruncate
+    su root @GROUP@
+}

@@ -1,0 +1,32 @@
+# gbrain-llm-shim.service — loopback shim gbrain -> OpenCode Go (optional LLM lane, off by default).
+# Toggle with @ROOT@/bin/gbrain-llm.sh on|off. While this unit is stopped no text leaves the server.
+[Unit]
+Description=GBrain LLM shim (OpenCode Go, loopback 127.0.0.1:@SHIM_PORT@)
+After=network-online.target
+Wants=network-online.target
+ConditionPathExists=@ROOT@/secrets/llm.env
+RequiresMountsFor=@DATA@
+
+[Service]
+Type=simple
+User=@USER@
+Group=@GROUP@
+Environment=SHIM_PORT=@SHIM_PORT@
+Environment=USAGE_FILE=@DATA@/logs/llm-usage.json
+EnvironmentFile=@ROOT@/secrets/llm.env
+ExecStart=@BUN_BIN@/bun run @ROOT@/bin/llm-shim.ts
+Restart=on-failure
+RestartSec=5
+MemoryMax=160M
+MemorySwapMax=64M
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=@DATA@/logs
+InaccessiblePaths=-/run/docker.sock -/var/run/docker.sock -@USER_HOME@/.ssh
+StandardOutput=append:@DATA@/logs/llm-shim.log
+StandardError=append:@DATA@/logs/llm-shim.log
+
+[Install]
+WantedBy=multi-user.target

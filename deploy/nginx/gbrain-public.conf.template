@@ -1,0 +1,26 @@
+# /etc/nginx/sites-available/gbrain-public — public HTTPS front door for GBrain.
+# Rendered by enable-frontdoor.sh public <host> (replaces __BRAIN_HOST__). Requires an A record
+# for __BRAIN_HOST__ pointing at this server and a certificate from certbot.
+server {
+    listen 80;
+    listen [::]:80;
+    server_name __BRAIN_HOST__;
+    access_log /var/log/nginx/gbrain-access.log gbrain;   # plain-HTTP probes count for fail2ban too
+    location ^~ /.well-known/acme-challenge/ { root /var/www/html; }
+    location / { return 444; }
+}
+
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    http2 on;
+    server_name __BRAIN_HOST__;
+
+    ssl_certificate     /etc/letsencrypt/live/__BRAIN_HOST__/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/__BRAIN_HOST__/privkey.pem;
+    ssl_protocols       TLSv1.2 TLSv1.3;
+    add_header Strict-Transport-Security "max-age=31536000" always;
+
+    set $gbrain_admin_ok 0;          # /admin only through a tunnel front door
+    include /etc/nginx/snippets/gbrain-gate.inc;
+}

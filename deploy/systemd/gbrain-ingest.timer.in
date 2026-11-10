@@ -1,0 +1,12 @@
+# gbrain-ingest.timer — every 15 minutes
+[Unit]
+Description=GBrain inbox ingest every 15 minutes
+
+[Timer]
+OnBootSec=5min
+OnUnitInactiveSec=15min
+RandomizedDelaySec=60
+Persistent=true
+
+[Install]
+WantedBy=timers.target

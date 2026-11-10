@@ -1,0 +1,17 @@
+# gbrain-pg.service — starts the Postgres container only once the data disk is mounted.
+[Unit]
+Description=GBrain Postgres (docker compose)
+After=docker.service network-online.target
+Requires=docker.service
+RequiresMountsFor=@DATA@
+ConditionPathExists=@DATA@/pg
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/docker compose -f @ROOT@/compose.yml --env-file @ROOT@/secrets/db.env up -d --wait
+ExecStop=/usr/bin/docker compose -f @ROOT@/compose.yml --env-file @ROOT@/secrets/db.env stop
+TimeoutStartSec=180
+
+[Install]
+WantedBy=multi-user.target

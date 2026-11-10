@@ -1,0 +1,17 @@
+# gbrain-backup.service — nightly pg_dump + config tarball into @DATA@/backups
+[Unit]
+Description=GBrain nightly backup
+After=gbrain-pg.service
+Requires=docker.service
+RequiresMountsFor=@DATA@
+
+[Service]
+Type=oneshot
+User=@USER@
+Group=@GROUP@
+SupplementaryGroups=docker
+ExecStart=@ROOT@/bin/gbrain-backup.sh
+Nice=10
+IOSchedulingClass=idle
+StandardOutput=append:@DATA@/logs/backup.log
+StandardError=append:@DATA@/logs/backup.log

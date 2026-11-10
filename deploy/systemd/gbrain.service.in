@@ -1,0 +1,57 @@
+# gbrain.service — shared GBrain MCP server (loopback only; front doors are nginx / VPN listeners).
+[Unit]
+Description=GBrain MCP server (shared research brain)
+After=network-online.target gbrain-pg.service
+Wants=network-online.target gbrain-pg.service
+RequiresMountsFor=@DATA@
+
+[Service]
+Type=simple
+User=@USER@
+Group=@GROUP@
+WorkingDirectory=@ROOT@
+Environment=GBRAIN_HOME=@ROOT@/home
+Environment=PATH=@BUN_BIN@:/usr/local/bin:/usr/bin:/bin
+# One hop of trusted proxy (nginx overwrites X-Forwarded-For with $remote_addr).
+Environment=GBRAIN_HTTP_TRUST_PROXY=1
+# GBRAIN_ADMIN_BOOTSTRAP_TOKEN and GBRAIN_PUBLIC_URL (0600).
+EnvironmentFile=@ROOT@/secrets/serve.env
+# Present only while the optional LLM lane is on (LITELLM_BASE_URL / LITELLM_API_KEY).
+EnvironmentFile=-@ROOT@/secrets/llm-client.env
+ExecStartPre=/usr/bin/pg_isready -q -h 127.0.0.1 -p @PG_PORT@ -U gbrain -d gbrain
+ExecStart=@BUN_BIN@/gbrain serve --http --port @HTTP_PORT@ --bind 127.0.0.1 \
+          --public-url ${GBRAIN_PUBLIC_URL} --surface starter --advertise starter \
+          --suppress-bootstrap-token
+Restart=always
+RestartSec=5
+MemoryMax=@SERVE_MEM_MB@M
+MemoryHigh=@SERVE_MEM_HIGH_MB@M
+MemorySwapMax=256M
+TasksMax=256
+# --- sandbox: this unit handles data other people uploaded; @USER@ may have sudo / docker ---
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=@ROOT@/home @ROOT@/repos @ROOT@/sources @DATA@/logs
+InaccessiblePaths=-/run/docker.sock -/var/run/docker.sock -/run/containerd -@USER_HOME@/.ssh
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+CapabilityBoundingSet=
+SystemCallArchitectures=native
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+UMask=0027
+StandardOutput=append:@DATA@/logs/serve.log
+StandardError=append:@DATA@/logs/serve.log
+
+[Install]
+WantedBy=multi-user.target

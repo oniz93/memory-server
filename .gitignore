@@ -1,0 +1,11 @@
+# Site-specific and private material: never published.
+/private/
+/out/
+*.env
+*.token
+*.pem
+*.key
+# Local noise
+.DS_Store
+__pycache__/
+*.pyc

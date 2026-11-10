@@ -1,0 +1,11 @@
+# /etc/nginx/sites-available/gbrain-__NAME__ — GBrain front door bound to a VPN address only.
+# Rendered by enable-frontdoor.sh tailscale|wireguard. Plain HTTP: the tunnel (Tailscale / WireGuard)
+# already encrypts and authenticates the peer; gbrain still requires a bearer token on /mcp.
+# Bound to the VPN address only, so nothing new listens on the public interface.
+server {
+    listen __LISTEN_ADDR__:__PORT__;
+    server_name _;
+
+    set $gbrain_admin_ok 1;          # owner dashboard reachable from the VPN (login still required)
+    include /etc/nginx/snippets/gbrain-gate.inc;
+}

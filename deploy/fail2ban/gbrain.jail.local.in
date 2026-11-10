@@ -1,0 +1,15 @@
+# /etc/fail2ban/jail.d/gbrain.local — ban clients that keep failing GBrain authentication.
+# Rendered by deploy/install.sh. A ban blocks the client on the front-door ports only.
+[gbrain-auth]
+enabled            = true
+filter             = gbrain-auth
+logpath            = /var/log/nginx/gbrain-access.log
+backend            = auto
+port               = http,https,@TUNNEL_PORT@
+maxretry           = 5
+findtime           = 10m
+bantime            = 1h
+bantime.increment  = true
+bantime.factor     = 2
+bantime.maxtime    = 1w
+ignoreip           = 127.0.0.1/8 ::1

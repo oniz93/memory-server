@@ -1,0 +1,16 @@
+# @INBOX_UNIT@ — size-capped upload inbox (loop image on the data disk), so uploads can never
+# fill a shared filesystem. nodev,nosuid,noexec: nothing uploaded can run from here. The bare
+# mountpoint is chattr +i, so writes fail (instead of landing on the root disk) while unmounted.
+[Unit]
+Description=GBrain upload inbox (capped loop filesystem)
+ConditionPathExists=@DATA@/inbox.img
+RequiresMountsFor=@DATA@
+
+[Mount]
+What=@DATA@/inbox.img
+Where=@ROOT@/inbox
+Type=ext4
+Options=loop,nodev,nosuid,noexec,noatime
+
+[Install]
+WantedBy=multi-user.target

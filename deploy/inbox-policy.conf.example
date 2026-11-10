@@ -1,0 +1,13 @@
+# $GBRAIN_ROOT/etc/inbox-policy.conf — which sources each person may upload transcripts into.
+#
+#   <person>: <source-id> [<source-id> ...]        # comments are ignored
+#
+# <person> is the name used with `inbox-key.sh add <person> <key>` and the name of their upload
+# directory. Keep this in line with the token grants (gbrain auth rescope --sources ...): never list
+# a source here that the person's token cannot read. A file uploaded under a source that is not
+# listed for that person is moved to inbox/.rejected and never ingested.
+#
+# Example: one owner with a private source, two collaborators on one shared project.
+owner:   research-alpha owner-private
+alice:   research-alpha
+bob:     research-alpha
