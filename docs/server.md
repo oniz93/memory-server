@@ -153,6 +153,16 @@ Nothing is reachable from outside until you enable a door. All doors share one g
 Failed attempts (401, 403, dropped) are counted by fail2ban: 5 in 10 minutes bans the address
 for an hour, doubling up to a week. Rate-limit responses are not counted.
 
+A client that starts without its token (an empty `Bearer`) is dropped like any stranger, and MCP
+clients retry quickly, so a misconfigured harness bans its own person within seconds. The usual
+culprit is a background service started before `GBRAIN_TOKEN` was exported (OpenCode 2.x). Fix the
+client first, then lift the ban:
+
+```bash
+sudo fail2ban-client status gbrain-auth                  # who is banned
+sudo fail2ban-client set gbrain-auth unbanip <address>   # their VPN address
+```
+
 ```bash
 sudo $ROOT/bin/enable-frontdoor.sh status
 sudo $ROOT/bin/enable-frontdoor.sh tailscale            # http://<tailscale-ip>:$GBRAIN_TUNNEL_PORT/mcp
@@ -164,6 +174,11 @@ sudo $ROOT/bin/enable-frontdoor.sh disable tailscale
 The script validates with `nginx -t` and rolls back on failure, so a bad render never reaches the
 running nginx. VPN doors are plain HTTP on the VPN address only: the tunnel encrypts and
 authenticates the peer, and `/mcp` still needs a token. The public door needs nginx and certbot.
+
+Only the public door changes the OAuth issuer (`GBRAIN_PUBLIC_URL`). gbrain refuses to start with an
+issuer that is neither HTTPS nor loopback, so VPN doors keep the loopback default: bearer tokens
+work there, OAuth client logins need the public door. The script restarts gbrain after an issuer
+change and puts the old value back if it does not come up.
 
 Owner dashboard: `/admin` through a VPN door, or `ssh -L 3131:127.0.0.1:3131 <server>`. Get a
 one-time login link (the header travels on stdin, so the token never shows in a process list):

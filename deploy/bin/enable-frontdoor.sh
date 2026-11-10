@@ -10,8 +10,9 @@
 #   sudo enable-frontdoor.sh status
 #
 # VPN doors listen on GBRAIN_TUNNEL_PORT (/etc/gbrain/gbrain.conf). GBRAIN_PUBLIC_URL (the OAuth
-# issuer, in secrets/serve.env) follows the canonical door: public wins; otherwise the first VPN
-# door enabled while it is still the loopback default.
+# issuer, in secrets/serve.env) is set only by the public door: gbrain refuses to start with an
+# issuer that is neither HTTPS nor loopback, so VPN doors keep the loopback default. Bearer tokens
+# work on every door; OAuth clients need the public (HTTPS) door.
 set -euo pipefail
 . "$(dirname "$(readlink -f "$0")")/gbrain-env.sh"
 
@@ -58,18 +59,37 @@ activate() {
   echo "enabled gbrain-$name"
 }
 
-set_public_url() { # <url> [force]
+write_public_url() { # <url>
+  if grep -q '^GBRAIN_PUBLIC_URL=' "$SERVE_ENV"; then
+    sed -i "s#^GBRAIN_PUBLIC_URL=.*#GBRAIN_PUBLIC_URL=$1#" "$SERVE_ENV"
+  else
+    echo "GBRAIN_PUBLIC_URL=$1" >> "$SERVE_ENV"
+  fi
+}
+
+# gbrain_up: true once gbrain answers on loopback (any HTTP status), within ~30 s.
+gbrain_up() {
+  local i
+  for i in $(seq 15); do
+    sleep 2
+    systemctl is-active --quiet gbrain.service \
+      && curl -s -o /dev/null -m 3 "http://127.0.0.1:$GBRAIN_HTTP_PORT/" && return 0
+  done
+  return 1
+}
+
+set_public_url() { # <https-url>: the OAuth issuer; rolled back if gbrain does not come up with it
   local cur; cur="$(sed -n 's/^GBRAIN_PUBLIC_URL=//p' "$SERVE_ENV")"
-  if [ "${2:-}" = force ] || [ -z "$cur" ] || [[ "$cur" == http://127.0.0.1:* ]]; then
-    if grep -q '^GBRAIN_PUBLIC_URL=' "$SERVE_ENV"; then
-      sed -i "s#^GBRAIN_PUBLIC_URL=.*#GBRAIN_PUBLIC_URL=$1#" "$SERVE_ENV"
-    else
-      echo "GBRAIN_PUBLIC_URL=$1" >> "$SERVE_ENV"
-    fi
-    systemctl restart gbrain.service
+  [[ "$1" == https://* ]] || die "the issuer must be HTTPS: $1"
+  [ "$cur" = "$1" ] && { echo "GBRAIN_PUBLIC_URL already $1"; return; }
+  write_public_url "$1"
+  systemctl restart gbrain.service
+  if gbrain_up; then
     echo "GBRAIN_PUBLIC_URL=$1 (gbrain restarted)"
   else
-    echo "GBRAIN_PUBLIC_URL stays $cur"
+    write_public_url "${cur:-http://127.0.0.1:$GBRAIN_HTTP_PORT}"
+    systemctl restart gbrain.service
+    die "gbrain did not start with GBRAIN_PUBLIC_URL=$1; restored $cur (see $GBRAIN_LOG_DIR/serve.log)"
   fi
 }
 
@@ -92,7 +112,6 @@ tunnel() { # <name> <ip>
   sed -e "s/__NAME__/$name/g" -e "s/__LISTEN_ADDR__/$ip/" -e "s/__PORT__/$port/" \
       "$SRC/gbrain-tunnel.conf.template" > "$tmp"
   activate "$name" "$tmp"; rm -f "$tmp"
-  set_public_url "http://$ip:$port"
   echo "MCP endpoint: http://$ip:$port/mcp   (bearer token required; /admin reachable here)"
 }
 
@@ -117,7 +136,7 @@ public() { # <host>
   tmp="$(mktemp)"
   sed -e "s/__BRAIN_HOST__/$host/g" "$SRC/gbrain-public.conf.template" > "$tmp"
   activate public "$tmp"; rm -f "$tmp"
-  set_public_url "https://$host" force
+  set_public_url "https://$host"
   echo "MCP endpoint: https://$host/mcp   (bearer token required; /admin NOT exposed here)"
 }
 

@@ -30,7 +30,7 @@ DIR in one rsync. Nothing is deleted from the harness stores.
 Harnesses: claude-code, codex, grok, hermes (native gbrain formats) and pi, opencode (no gbrain
 adapter: converted into the Hermes slice schema with sessions.source = 'pi' / 'opencode').
 """
-import argparse, fnmatch, hashlib, json, os, re, shutil, sqlite3, subprocess, sys, time, urllib.parse, urllib.request, urllib.error
+import argparse, fnmatch, hashlib, json, os, re, shutil, sqlite3, ssl, subprocess, sys, time, urllib.parse, urllib.request, urllib.error
 from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
@@ -749,6 +749,22 @@ def stage(sessions, out, project, convert):
 
 
 # ---------------------------------------------------------------- MCP check
+def tls_context():
+    """Verified TLS context. python.org builds on macOS ship without a CA bundle until their
+    "Install Certificates" step runs; fall back to the system bundle or certifi, never to no checks."""
+    ctx = ssl.create_default_context()
+    if ctx.cert_store_stats().get("x509_ca"):
+        return ctx
+    for cafile in ("/etc/ssl/cert.pem", "/etc/ssl/certs/ca-certificates.crt"):
+        if os.path.exists(cafile):
+            return ssl.create_default_context(cafile=cafile)
+    try:
+        import certifi
+        return ssl.create_default_context(cafile=certifi.where())
+    except ImportError:
+        return ctx
+
+
 def mcp_check(url, token):
     sid = None
     def rpc(method, params=None, notify=False, n=[0]):
@@ -761,7 +777,7 @@ def mcp_check(url, token):
         if sid:
             h["mcp-session-id"] = sid
         req = urllib.request.Request(url, json.dumps(body).encode(), h, method="POST")
-        with urllib.request.urlopen(req, timeout=30) as r:
+        with urllib.request.urlopen(req, timeout=30, context=tls_context()) as r:
             sid = r.headers.get("mcp-session-id") or sid
             raw = r.read().decode("utf-8", "replace")
             if "text/event-stream" in (r.headers.get("content-type") or ""):
@@ -798,6 +814,9 @@ def collect(a, quiet=False):
     hs = ALL if a.harness == "all" else [h.strip() for h in a.harness.split(",") if h.strip()]
     if explicit and a.harness == "all":
         hs = ["hermes"]
+        if not quiet:
+            print("note: Hermes selectors given, so only those are staged; stage the project's other"
+                  " sessions with a separate command (or pass --harness)", file=sys.stderr)
     bad = [h for h in hs if h not in SCANNERS]
     if bad:
         raise ValueError(f"unknown harness: {bad}")
@@ -816,7 +835,9 @@ def collect(a, quiet=False):
         else:
             hrecs = scan_hermes(project, a.since)
         hrecs = [r for r in hrecs if r["id"] not in set(a.exclude)]
-        sessions += hermes_filter(hrecs, a.since, a.until, a.grep, a.last, a.skip_silent, a.skip_automated, cs)
+        # A job picked by name is a cron job: --skip-automated only narrows the project scan.
+        skip_auto = a.skip_automated and not explicit
+        sessions += hermes_filter(hrecs, a.since, a.until, a.grep, a.last, a.skip_silent, skip_auto, cs)
     return project, hs, explicit, sessions
 
 

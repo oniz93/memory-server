@@ -49,7 +49,10 @@ python3 $H stage --out /tmp/stage --hermes-job 'nightly-*' --grep regression \
 - A cron run is tied to its job by its title (`<job> · <date>`), or by the job id inside older
   session ids. Hermes keeps no durable job-to-session link.
 - `--since`, `--until`, `--grep`, `--last N` (per job) and `--skip-silent` narrow cron runs.
-  A picked thread or session always comes whole.
+  A picked thread or session always comes whole. `--skip-automated` never drops a job picked by
+  name: it only narrows the project scan.
+- With Hermes selectors, only those are staged. Stage the project's other sessions with a separate
+  `stage` command (or pass `--harness`).
 - Each job or thread becomes its own slice, named after the exact set of sessions in it. That
   matters because the server remembers "what I already imported" per file name: a different
   selection never reuses a name, and re-sending the same selection is free.
